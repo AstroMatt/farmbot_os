@@ -71,7 +71,13 @@ $(shell echo $(MIX_TARGET) > .make_state)
 $(shell rm -f $(NIF))
 endif
 
-all: priv $(NIF) farmbot_arduino_firmware
+ALL := priv $(NIF)
+
+ifeq ($(shell bash -c 'if [ -d "$(ARDUINO_INSTALL_DIR)" ]; then echo 1; else echo 0; fi'), 1)
+ALL += farmbot_arduino_firmware
+endif
+
+all: $(ALL)
 
 farmbot_arduino_firmware_build_dirs: $(ARDUINO_BUILD_DIR) $(ARDUINO_CACHE_DIR)
 
