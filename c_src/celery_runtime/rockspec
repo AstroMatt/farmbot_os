@@ -16,18 +16,46 @@ description = {
    homepage   = "https://github.com/FarmBot-Labs/CeleryScript-Runtime",
    license    = "MIT",
    maintainer = "Rick Carlino; FarmBot, Inc.",
+   -- labels     = { "farmbot" }
 }
 
 dependencies = {
+  "busted",
+  "luacheck",
+  "luacov",
+  "lovebird",
    "lua >= 5.1, < 5.4",
    "penlight",
-   "busted",
-   "luacheck",
-   "luacov",
-   "lualint",
-   "lovebird"
 }
 
 build = {
-   -- We'll start here.
+   type = "make",
+   variables = {
+     CFLAGS="$(CFLAGS)",
+     LIBFLAG="$(LIBFLAG)",
+     LUA_LIBDIR="$(LUA_LIBDIR)",
+     LUA_BINDIR="$(LUA_BINDIR)",
+     LUA_INCDIR="$(LUA_INCDIR)",
+     LUA="$(LUA)",
+     INST_PREFIX="$(PREFIX)",
+     INST_BINDIR="$(BINDIR)",
+     INST_LIBDIR="$(LIBDIR)",
+     INST_LUADIR="$(LUADIR)",
+     INST_CONFDIR="$(CONFDIR)",
+   },
+   build_variables = {
+      CFLAGS="$(CFLAGS)",
+      LIBFLAG="$(LIBFLAG)",
+      LUA_LIBDIR="$(LUA_LIBDIR)",
+      LUA_BINDIR="$(LUA_BINDIR)",
+      LUA_INCDIR="$(LUA_INCDIR)",
+      LUA="$(LUA)",
+   },
+   install_variables = {
+      INST_PREFIX="$(PREFIX)",
+      INST_BINDIR="$(BINDIR)",
+      INST_LIBDIR="$(LIBDIR)",
+      INST_LUADIR="$(LUADIR)",
+      INST_CONFDIR="$(CONFDIR)",
+   },
 }
