@@ -1,39 +1,37 @@
+MIX_TARGET ?= host
+MIX_ENV ?= dev
+BUILD_DIR ?= $(PWD)/_build/$(MIX_TARGET)/$(MIX_ENV)
+C_SRC_DIR ?= $(PWD)/c_src
+PRIV_DIR  ?= $(PWD)/priv
+
 ALL :=
 CLEAN :=
-
-ifeq ($(ERL_EI_INCLUDE_DIR),)
-
-$(warning ERL_EI_INCLUDE_DIR not set. Invoke via mix)
-
-else
-
-ALL += fbos_build_calendar_nif
-CLEAN += fbos_clean_build_calendar_nif
-endif
+PHONY :=
 
 ifeq ($(SKIP_ARDUINO_BUILD),)
 
-ALL += fbos_arduino_firmware
-CLEAN += fbos_clean_arduino_firmware
+ALL += farmbot_firmware
+CLEAN += farmbot_firmware_clean
 
 else
+
 $(warning SKIP_ARDUINO_BUILD is set. No arduino assets will be built.)
+
 endif
 
-.PHONY: $(ALL) $(CLEAN) all clean
+include $(C_SRC_DIR)/lua/lua.Makefile
+include $(C_SRC_DIR)/build_calendar/build_calendar.Makefile
+
+.DEFAULT_GOAL := all
+
+.PHONY: all clean $(PHONY)
 
 all: $(ALL)
 
 clean: $(CLEAN)
 
-fbos_arduino_firmware:
-	cd c_src/farmbot-arduino-firmware && make all BUILD_DIR=$(PWD)/_build FBARDUINO_FIRMWARE_SRC_DIR=$(PWD)/c_src/farmbot-arduino-firmware/src BIN_DIR=$(PWD)/priv
+farmbot_firmware:
+	cd c_src/farmbot-arduino-firmware && make all BUILD_DIR=$(BUILD_DIR)/farmbot_firmware FBARDUINO_FIRMWARE_SRC_DIR=$(C_SRC_DIR)/farmbot-arduino-firmware/src BIN_DIR=$(PRIV_DIR)
 
-fbos_clean_arduino_firmware:
-	cd c_src/farmbot-arduino-firmware && make clean BUILD_DIR=$(PWD)/_build FBARDUINO_FIRMWARE_SRC_DIR=$(PWD)/c_src/farmbot-arduino-firmware/src BIN_DIR=$(PWD)/priv
-
-fbos_build_calendar_nif:
-	make -f c_src/build_calendar/Makefile all ERL_EI_INCLUDE_DIR=$(ERL_EI_INCLUDE_DIR) ERL_EI_LIBDIR=$(ERL_EI_LIBDIR)
-
-fbos_clean_build_calendar_nif:
-	make -f c_src/build_calendar/Makefile clean ERL_EI_INCLUDE_DIR=$(ERL_EI_INCLUDE_DIR) ERL_EI_LIBDIR=$(ERL_EI_LIBDIR)
+farmbot_firmware_clean:
+	cd c_src/farmbot-arduino-firmware && make clean BUILD_DIR=$(BUILD_DIR)/farmbot_firmware FBARDUINO_FIRMWARE_SRC_DIR=$(C_SRC_DIR)/farmbot-arduino-firmware/src BIN_DIR=$(PRIV_DIR)
