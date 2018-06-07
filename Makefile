@@ -20,6 +20,8 @@ $(warning SKIP_ARDUINO_BUILD is set. No arduino assets will be built.)
 endif
 
 include $(C_SRC_DIR)/lua/lua.Makefile
+include $(C_SRC_DIR)/lua/luarocks.Makefile
+include $(C_SRC_DIR)/celery_runtime/celery_runtime.Makefile
 include $(C_SRC_DIR)/build_calendar/build_calendar.Makefile
 
 .DEFAULT_GOAL := all
