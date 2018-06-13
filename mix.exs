@@ -141,9 +141,10 @@ defmodule Farmbot.Mixfile do
   defp deps(target) do
     system(target) ++
       [
-        {:shoehorn, "~> 0.2.0", except: :test},
-        {:nerves_runtime, "0.5.3"},
+        {:shoehorn, "~> 0.2.0"},
+        {:nerves_runtime, "~> 0.6.1"},
         {:nerves_firmware, "~> 0.4.0"},
+        {:nerves_network_interface, "~> 0.4.4"},
         {:nerves_wpa_supplicant,
          github: "nerves-project/nerves_wpa_supplicant", override: true},
         {:elixir_ale, "~> 1.0"},

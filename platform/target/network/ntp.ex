@@ -4,7 +4,7 @@ defmodule Farmbot.Target.Network.Ntp do
   """
 
   use Farmbot.Logger
-  import Farmbot.Target.Network, only: [test_dns: 1]
+  import Farmbot.Configurator.Watchdog, only: [test_dns: 1]
 
   @doc """
   Tries to set the time from ntp.

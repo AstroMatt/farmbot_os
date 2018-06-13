@@ -190,23 +190,8 @@ defmodule Farmbot.Target.Configurator.Router do
     server = get_config_value(:string, "authorization", "server")
     network = !(Enum.empty?(ConfigStorage.get_all_network_configs()))
     if email && pass && server && network do
-      conn = render_page(conn, "finish")
-      spawn fn() ->
-        try do
-          alias Farmbot.Target.Configurator
-          Logger.success 2, "Configuration finished."
-          Process.sleep(2500) # Allow the page to render and send.
-          :ok = GenServer.stop(Configurator.CaptivePortal, :normal)
-          # :ok = Supervisor.terminate_child(Configurator, Configurator.CaptivePortal)
-          :ok = Supervisor.stop(Configurator)
-          Process.sleep(2500) # Good luck.
-        rescue
-          e ->
-            Logger.warn 1, "Falied to close captive portal. Good luck. " <>
-              Exception.message(e)
-        end
-      end
-      conn
+      Logger.success 2, "Configuration finished."
+      render_page(conn, "finish")
     else
       Logger.warn 3, "Not configured yet. Restarting configuration."
       redir(conn, "/")
