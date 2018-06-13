@@ -23,9 +23,6 @@ config :farmbot, :init, [
   # Autodetects if a Arduino is plugged in and configures accordingly.
   Farmbot.Firmware.UartHandler.AutoDetector,
 
-  # Allows for first boot configuration.
-  Farmbot.Target.Bootstrap.Configurator,
-
   # Start up Network
   Farmbot.Target.Network,
 
@@ -50,6 +47,8 @@ config :farmbot, :behaviour,
   system_tasks: Farmbot.Target.SystemTasks,
   firmware_handler: Farmbot.Firmware.StubHandler,
   update_handler: Farmbot.Target.UpdateHandler,
+  configurator: Farmbot.Target.Configurator,
+  watchdog: Farmbot.Target.Watchdog,
   gpio_handler:   Farmbot.Target.GPIO.AleHandler
 
 config :shoehorn,

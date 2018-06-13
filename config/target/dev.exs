@@ -23,9 +23,6 @@ config :farmbot, :init, [
   # Autodetects if a Arduino is plugged in and configures accordingly.
   Farmbot.Firmware.UartHandler.AutoDetector,
 
-  # Allows for first boot configuration.
-  Farmbot.Target.Bootstrap.Configurator,
-
   # Start up Network
   Farmbot.Target.Network,
 
@@ -52,6 +49,8 @@ config :farmbot, :behaviour,
   system_tasks: Farmbot.Target.SystemTasks,
   firmware_handler: Farmbot.Firmware.StubHandler,
   update_handler: Farmbot.Target.UpdateHandler,
+  configurator: Farmbot.Target.Configurator,
+  watchdog: Farmbot.Target.Watchdog,
   gpio_handler:   Farmbot.Target.GPIO.AleHandler
 
 local_file = Path.join(System.user_home!(), ".ssh/id_rsa.pub")
@@ -60,5 +59,5 @@ local_key = if File.exists?(local_file), do: [File.read!(local_file)], else: []
 config :nerves_firmware_ssh, authorized_keys: local_key
 
 config :shoehorn,
-  init: [:nerves_runtime, :nerves_init_gadget],
+  init: [:nerves_runtime],
   app: :farmbot

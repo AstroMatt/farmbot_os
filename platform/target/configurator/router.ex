@@ -1,4 +1,4 @@
-defmodule Farmbot.Target.Bootstrap.Configurator.Router do
+defmodule Farmbot.Target.Configurator.Router do
   @moduledoc "Routes web connections."
 
   use Plug.Router
@@ -193,7 +193,7 @@ defmodule Farmbot.Target.Bootstrap.Configurator.Router do
       conn = render_page(conn, "finish")
       spawn fn() ->
         try do
-          alias Farmbot.Target.Bootstrap.Configurator
+          alias Farmbot.Target.Configurator
           Logger.success 2, "Configuration finished."
           Process.sleep(2500) # Allow the page to render and send.
           :ok = GenServer.stop(Configurator.CaptivePortal, :normal)

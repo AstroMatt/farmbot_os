@@ -1,13 +1,14 @@
-defmodule Farmbot.Target.Bootstrap.Configurator do
+defmodule Farmbot.Target.Configurator do
   @moduledoc """
   This init module is used to bring up initial configuration.
   If it can't find a configuration it will bring up a captive portal for a device to connect to.
   """
 
-  @behaviour Farmbot.System.Init
+  @behaviour Farmbot.Configurator
+
   use Farmbot.Logger
   alias Farmbot.System.ConfigStorage
-  alias Farmbot.Target.Bootstrap.Configurator
+  alias Farmbot.Target.Configurator
 
   @doc """
   This particular init module should block until all settings have been validated.
