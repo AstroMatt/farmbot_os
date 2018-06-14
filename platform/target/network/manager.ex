@@ -1,14 +1,21 @@
 defmodule Farmbot.Target.Network.Manager do
   @moduledoc "Network manager"
-  alias ConfigStorage.NetworkInterface
+  alias ConfigStorage.NetworkInterface, as: NI
   alias Farmbot.Target.Network.ScanResult
 
+  defmodule State do
+    defstruct [:config]
+  end
 
   def start_link([ifname, config]) do
     GenServer.start_link(__MODULE__, [ifname, config], name: name(ifname))
   end
 
-  def init([ifname, config]) do
+  def init([ifname, %NI{type: "wireless"} = ni]) do
+
+  end
+
+  def init([ifname, %NI{type: "wired"} = ni]) do
 
   end
 
