@@ -29,7 +29,7 @@ defmodule Farmbot.Configurator.Watchdog do
     update_config_value(:string, "authorization", "token", nil)
     {:ok, wwd} = @watchdog.start_link()
     Process.link(wwd)
-    start_dns_timer(30_000)
+    # start_dns_timer(30_000)
     {:ok, %{watched_watchdog: wwd, dns: false}}
   end
 
@@ -39,6 +39,7 @@ defmodule Farmbot.Configurator.Watchdog do
         {:ok, {:hostent, host, _, :inet, _, _}} ->
           Logger.success(1, "Farmbot was able to make dns requests to: #{host}")
           @configurator.leave()
+          Farmbot.Bootstrap.AuthTask.force_refresh()
           start_dns_timer(30_000)
           {:noreply, %{state | dns: true}}
         err ->

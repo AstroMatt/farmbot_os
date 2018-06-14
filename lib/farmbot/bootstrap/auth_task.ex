@@ -5,6 +5,9 @@ defmodule Farmbot.Bootstrap.AuthTask do
   alias Farmbot.System.ConfigStorage
   import ConfigStorage, only: [update_config_value: 4, get_config_value: 3]
 
+  @configurator Application.get_env(:farmbot, :behaviour)[:configurator]
+  @configurator || Mix.raise("Please configure a configurator implementation.")
+
   # 30 minutes.
   @refresh_time 1.8e+6 |> round()
   # @refresh_time 5_000
@@ -20,8 +23,7 @@ defmodule Farmbot.Bootstrap.AuthTask do
 
   def init([]) do
     timer = Process.send_after(self(), :refresh, @refresh_time)
-    Farmbot.System.Registry.subscribe(self())
-    {:ok, timer, :hibernate}
+    {:ok, %{timer: timer, last: true}, :hibernate}
   end
 
   def terminate(reason, _state) do
@@ -30,7 +32,7 @@ defmodule Farmbot.Bootstrap.AuthTask do
     end
   end
 
-  defp do_refresh do
+  defp do_refresh(state) do
     auth_task = Application.get_env(:farmbot, :behaviour)[:authorization]
     {email, pass, server} = {fetch_email(), fetch_pass(), fetch_server()}
     # Logger.busy(3, "refreshing token: #{email} - #{server}")
@@ -45,34 +47,36 @@ defmodule Farmbot.Bootstrap.AuthTask do
           # Force an auto sync
           Farmbot.Repo.sync(2)
         end
+
+        if state.last == false do
+          Logger.success(1, "Token reauthorized.")
+          restart_transports()
+          @configurator.leave()
+        end
         Farmbot.System.Registry.dispatch :authorization, :new_token
-        restart_transports()
-        refresh_timer(self())
+        refresh_timer(%{state | last: true}, self())
       {:error, err} ->
-        msg = "Token failed to reauthorize: #{email} - #{server} #{inspect err}"
-        Logger.error(1, msg)
+        if state.last do
+          msg = "Token failed to reauthorize: #{email} - #{server} #{inspect err}"
+          Logger.error(1, msg)
+          @configurator.enter(msg)
+        end
         # If refresh failed, try again more often
-        refresh_timer(self(), 15_000)
+        refresh_timer(%{state | last: false}, self(), 15_000)
     end
   end
 
-  def handle_info(:refresh, _old_timer) do
-    do_refresh()
+  def handle_info(:refresh, state) do
+    do_refresh(state)
   end
 
-  def handle_info({Farmbot.System.Registry, {:network, :dns_up}}, _old_timer) do
-    do_refresh()
-  end
-
-  def handle_info({Farmbot.System.Registry, _}, timer), do: {:noreply, timer}
-
-  def handle_call(:force_refresh, _, old_timer) do
+  def handle_call(:force_refresh, _, state) do
     Logger.info 1, "Forcing a token refresh."
-    if Process.read_timer(old_timer) do
-      Process.cancel_timer(old_timer)
+    if Process.read_timer(state.timer) do
+      Process.cancel_timer(state.timer)
     end
     send self(), :refresh
-    {:reply, :ok, nil}
+    {:reply, :ok, %{state | timer: nil}}
   end
 
   defp restart_transports do
@@ -82,9 +86,9 @@ defmodule Farmbot.Bootstrap.AuthTask do
     {:ok, _} = Supervisor.restart_child(bootstrap_sup, transport_sup)
   end
 
-  defp refresh_timer(pid, ms \\ @refresh_time) do
+  defp refresh_timer(state, pid, ms \\ @refresh_time) do
     timer = Process.send_after(pid, :refresh, ms)
-    {:noreply, timer, :hibernate}
+    {:noreply, %{state | timer: timer}, :hibernate}
   end
 
   defp fetch_email do
