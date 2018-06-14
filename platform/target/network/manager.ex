@@ -1,22 +1,78 @@
 defmodule Farmbot.Target.Network.Manager do
   @moduledoc "Network manager"
+  alias Farmbot.System.ConfigStorage
+  import ConfigStorage, only: [get_config_value: 3]
   alias ConfigStorage.NetworkInterface, as: NI
-  alias Farmbot.Target.Network.ScanResult
+  alias Farmbot.Target.Network.{ScanResult, Ntp}
+  use Farmbot.Logger
 
   defmodule State do
-    defstruct [:config]
+    defstruct [:config, :ntp_timer]
   end
 
-  def start_link([ifname, config]) do
-    GenServer.start_link(__MODULE__, [ifname, config], name: name(ifname))
+  def start_link(ifname, config) do
+    GenServer.start_link(__MODULE__, [config], name: name(ifname))
   end
 
-  def init([ifname, %NI{type: "wireless"} = ni]) do
-
+  def init([%NI{} = config]) do
+    Nerves.Runtime.cmd("ifup", [config.name], :info)
+    state = %State{config: %{config | ipv4_address: nil}}
+    state = if config.ipv4_method == "dhcp" do
+      start_dhcp_poll()
+      state
+    else
+      state
+    end
+    {:ok, state}
   end
 
-  def init([ifname, %NI{type: "wired"} = ni]) do
+  def terminate(_reason, state) do
+    Nerves.Runtime.cmd("ifdown", [state.config.name], :info)
+  end
 
+  def handle_info(:dhcp_poll, %{config: %{name: ifname, ipv4_address: old}} = state) do
+    case Netinfo.ipv4_address(ifname) do
+      {:ok, ^old} ->
+        start_dhcp_poll()
+        {:noreply, state}
+      {:ok, new} ->
+        start_dhcp_poll()
+        Logger.debug 3, "Ip address #{old} => #{new}"
+        new_state = %{state | config: %{state.config | ipv4_address: new}}
+        {:noreply, handle_ip_change(new_state)}
+    end
+  end
+
+  defp start_dhcp_poll() do
+    Process.send_after(self(), :dhcp_poll, 5000)
+  end
+
+  defp handle_ip_change(state) do
+    %{state | ntp_timer: maybe_cancel_and_reset_ntp_timer(state.ntp_timer)}
+  end
+
+  defp maybe_cancel_and_reset_ntp_timer(timer) do
+    if timer do
+      Process.cancel_timer(timer)
+    end
+
+    # introduce a bit of randomness to avoid dosing ntp servers.
+    # I don't think this would ever happen but the default ntpd implementation
+    # does this..
+    rand = :rand.uniform(5000)
+
+    case Ntp.set_time() do
+
+      # If we Successfully set time, sync again in around 1024 seconds
+      :ok -> Process.send_after(self(), :ntp_timer, 1024000 + rand)
+      # If time failed, try again in about 5 minutes.
+      _ ->
+        if get_config_value(:bool, "settings", "first_boot") do
+          Process.send_after(self(), :ntp_timer, 10_000 + rand)
+        else
+          Process.send_after(self(), :ntp_timer, 300000 + rand)
+        end
+    end
   end
 
   @doc "Scan on an interface."

@@ -2,7 +2,7 @@ defmodule Farmbot.System.Init.FSCheckup do
   @moduledoc false
   use Supervisor
   use Farmbot.Logger
-  
+
   @behaviour Farmbot.System.Init
   @data_path Application.get_env(:farmbot, :data_path)
   @data_path || Mix.raise("Unconfigured data path.")
@@ -29,6 +29,11 @@ defmodule Farmbot.System.Init.FSCheckup do
     unless File.exists?(@data_path) do
       File.mkdir(@data_path)
     end
+
+    network_interfaces_file = Path.join(@data_path, "interfaces")
+    # unless File.exists?(network_interfaces_file) do
+    File.cp(Path.join(:code.priv_dir(:farmbot), "interfaces"), network_interfaces_file)
+    # end
 
     setup_multi_user()
 

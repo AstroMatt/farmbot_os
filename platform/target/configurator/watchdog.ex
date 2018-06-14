@@ -4,11 +4,8 @@ defmodule Farmbot.Target.Watchdog do
   use GenServer
 
   def kick(wd) do
-    GenServer.call(wd, :kick)
-  end
-
-  def register_network_interface(wd, interface) do
-    GenServer.call(wd, {:register_network_interface, interface})
+    :ok
+    # GenServer.call(wd, :kick)
   end
 
   def start_link do
@@ -16,7 +13,7 @@ defmodule Farmbot.Target.Watchdog do
   end
 
   def init([]) do
-
+    {:ok, []}
   end
 
 end

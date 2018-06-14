@@ -10,6 +10,7 @@ defmodule Farmbot.Target.Configurator do
   alias Farmbot.System.ConfigStorage
   import ConfigStorage, only: [get_config_value: 3]
   alias Farmbot.Target.Configurator
+  use Supervisor
 
   @doc """
   This should block until all settings have been validated.
@@ -25,12 +26,21 @@ defmodule Farmbot.Target.Configurator do
     leave()
   end
 
-  def enter(_reason) do
-    Nerves.Runtime.cmd("ifup", ["uap0"], :info)
+  def enter(reason) do
+    Logger.warn(3, "entering configuration mode: #{inspect reason}")
+    Nerves.Runtime.cmd("kill", ["-9", "dnsmasq"], :info)
+    Nerves.Runtime.cmd("ifup", ["-f", "uap0"], :info)
+    Nerves.Runtime.cmd("hostapd", ["-B", "-i", "uap0", "-dd", "-P", "/var/run/uap0.hostapd.pid", "/etc/uap0.hostapd.conf"], :info)
+    Nerves.Runtime.cmd("dnsmasq", ["-K", "--dhcp-lease", "/var/run/uap0.dnsmasq.leases", "-C", "/etc/uap0.dnsmasq.conf", "--log-dhcp"], :info)
+    :ok
   end
 
   def leave do
-    Nerves.Runtime.cmd("ifdown", ["uap0"], :info)
+    Logger.success(3, "leaving configuration mode.")
+    Nerves.Runtime.cmd("ifdown", ["-f", "uap0"], :info)
+    Nerves.Runtime.cmd("killall", ["-s", "SIGQUIT", "hostapd"], :info)
+    Nerves.Runtime.cmd("killall", ["-9", "dnsmasq"], :info)
+    :ok
   end
 
   @doc false

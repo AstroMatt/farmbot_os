@@ -1,0 +1,17 @@
+iface uap0 inet static
+    address 192.168.24.1
+    netmask 255.255.255.0
+    network 192.168.24.0
+    broadcast 192.168.24.255
+    gateway 192.168.24.1
+    dns-nameservers 192.168.24.1 1.1.1.1
+    pre-up sh -c /etc/uap0.pre-up.sh
+    post-down sh -c /etc/uap0.post-down.sh
+
+# begin replace part
+
+# replace-wlan0
+
+# replace-eth0
+
+# end
