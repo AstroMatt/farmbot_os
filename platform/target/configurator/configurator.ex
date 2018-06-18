@@ -25,6 +25,7 @@ defmodule Farmbot.Target.Configurator do
                          "#{@ifname}.dnsmasq.leases"
                        ])
   @dnsmasq_conf_file Path.join(["/", "etc", "#{@ifname}.dnsmasq.conf"])
+  @dnsmasq_log_file Path.join(["/", "tmp", "dnsmasq.log"])
 
   @doc """
   This should block until all settings have been validated.
@@ -43,8 +44,9 @@ defmodule Farmbot.Target.Configurator do
   def enter(reason) do
     Logger.warn(3, "entering configuration mode: #{inspect(reason)}")
     write_config!()
+    Nerves.Runtime.cmd("iw", ~w(dev wlan0 interface add uap0 type __ap), :info)
     Nerves.Runtime.cmd("kill", ["-9", "dnsmasq"], :info)
-    Nerves.Runtime.cmd("ifup", ["-f", @ifname], :info)
+    Nerves.Runtime.cmd("ifup", [@ifname], :info)
 
     Nerves.Runtime.cmd(
       "hostapd",
@@ -55,12 +57,12 @@ defmodule Farmbot.Target.Configurator do
     Nerves.Runtime.cmd(
       "dnsmasq",
       [
-        "-K",
+        "-K", "-q", "-8", @dnsmasq_log_file,
         "--dhcp-lease",
         @dnsmasq_leases_file,
-        "--log-dhcp",
         "-C",
-        @dnsmasq_conf_file
+        @dnsmasq_conf_file,
+        "--log-dhcp",
       ],
       :info
     )
@@ -70,9 +72,10 @@ defmodule Farmbot.Target.Configurator do
 
   def leave do
     Logger.success(3, "leaving configuration mode.")
-    Nerves.Runtime.cmd("ifdown", ["-f", @ifname], :info)
+    Nerves.Runtime.cmd("ifdown",  ["-f", @ifname], :info)
     Nerves.Runtime.cmd("killall", ["-s", "SIGQUIT", "hostapd"], :info)
     Nerves.Runtime.cmd("killall", ["-9", "dnsmasq"], :info)
+    Nerves.Runtime.cmd("iw", ~w(dev uap0 del), :info)
     :ok
   end
 

@@ -7,7 +7,7 @@ defmodule Farmbot.Target.Network.Manager do
   use Farmbot.Logger
 
   defmodule State do
-    defstruct [:config, :ntp_timer]
+    defstruct [:config, :ntp_timer, :wpa_supplicant]
   end
 
   def start_link(ifname, config) do
@@ -15,7 +15,7 @@ defmodule Farmbot.Target.Network.Manager do
   end
 
   def init([%NI{} = config]) do
-    Nerves.Runtime.cmd("ifup", [config.name], :info)
+    {_, 0} = Nerves.Runtime.cmd("ifup", [config.name], :info)
     state = %State{config: %{config | ipv4_address: nil}}
 
     state =
@@ -26,11 +26,24 @@ defmodule Farmbot.Target.Network.Manager do
         state
       end
 
+    state =
+      if config.type == "wireless" do
+        {:ok, wpa} = Nerves.WpaSupplicant.start_link(config.name, "/var/run/wpa_supplicant_ctrl/#{config.name}")
+        Registry.register(Nerves.WpaSupplicant, config.name, [])
+        %{state | wpa_supplicant: wpa}
+      else
+        state
+      end
+
     {:ok, state}
   end
 
   def terminate(_reason, state) do
-    Nerves.Runtime.cmd("ifdown", [state.config.name], :info)
+    Nerves.Runtime.cmd("ifdown", ["-f", state.config.name], :info)
+  end
+
+  def handle_info({Nerves.WpaSupplicant, _, _}, state) do
+    {:noreply, state}
   end
 
   def handle_info(
@@ -38,6 +51,10 @@ defmodule Farmbot.Target.Network.Manager do
         %{config: %{name: ifname, ipv4_address: old}} = state
       ) do
     case Netinfo.ipv4_address(ifname) do
+      {:error, :no_ipv4_address} ->
+        start_dhcp_poll()
+        {:noreply, state}
+
       {:ok, ^old} ->
         start_dhcp_poll()
         {:noreply, state}
@@ -48,6 +65,13 @@ defmodule Farmbot.Target.Network.Manager do
         new_state = %{state | config: %{state.config | ipv4_address: new}}
         {:noreply, handle_ip_change(new_state)}
     end
+  end
+
+  def handle_info(:ntp_timer, state) do
+    new_state = %{state |
+      ntp_timer: maybe_cancel_and_reset_ntp_timer(state.ntp_timer)
+    }
+    {:noreply, new_state}
   end
 
   defp start_dhcp_poll() do

@@ -5,5 +5,5 @@ defmodule Farmbot.Target.Network.Templates do
   def hostapd_conf_template, do: template("hostapd.conf.eex")
 
   defp template(file),
-    do: Path.join(List.flatten([:code.priv_dir(:farmbot), "network", file]))
+    do: Path.join([:code.priv_dir(:farmbot), "network", file])
 end

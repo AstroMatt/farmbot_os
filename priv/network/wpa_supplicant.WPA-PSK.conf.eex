@@ -2,7 +2,7 @@ ctrl_interface=/var/run/wpa_supplicant_ctrl
 country=US
 
 network={
-  ssid=<%= ssid %>
-  psk=<%= psk %>
+  ssid="<%= ssid %>"
+  psk="<%= psk %>"
   key_mgmt=WPA-PSK
 }

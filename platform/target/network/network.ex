@@ -6,6 +6,7 @@ defmodule Farmbot.Target.Network do
   alias Farmbot.System.ConfigStorage
   alias ConfigStorage.NetworkInterface, as: NI
   alias Farmbot.Target.Network.Manager, as: NetworkManager
+  alias Farmbot.Target.Network.ScanResult
   import Farmbot.Target.Network.Templates
 
   use Supervisor
@@ -38,8 +39,26 @@ defmodule Farmbot.Target.Network do
   end
 
   def scan(ifname) do
-    []
-    # NetworkManager.scan(NetworkManager.name(ifname))
+    case GenServer.whereis(NetworkManager.name(ifname)) do
+      nil ->
+        wpa_templ_render!(ifname, "BASE", [])
+        Nerves.Runtime.cmd("sh", ["-c" | [wpa_supplicant_cmdline(ifname)]], :info)
+        {:ok, wpa} = Nerves.WpaSupplicant.start_link(ifname, "/var/run/wpa_supplicant_ctrl/#{ifname}")
+        res = Nerves.WpaSupplicant.scan(wpa)
+          |> ScanResult.decode()
+          |> ScanResult.sort_results()
+          |> ScanResult.decode_security()
+          |> Enum.filter(&Map.get(&1, :ssid))
+          |> Enum.map(&Map.update(&1, :ssid, nil, fn ssid -> to_string(ssid) end))
+          |> Enum.reject(&String.contains?(&1.ssid, "\\x00"))
+          |> Enum.uniq_by(fn %{ssid: ssid} -> ssid end)
+        Nerves.WpaSupplicant.stop(wpa)
+        Nerves.Runtime.cmd("sh", ["-c" | [kill_wpa_supplicant_cmdline(ifname)]], :info)
+        File.rm_rf("/var/run/wpa_supplicant_ctrl/wlan0")
+        res
+      pid ->
+        NetworkManager.scan(pid)
+    end
   end
 
   def start_link(_, opts) do
@@ -72,10 +91,8 @@ defmodule Farmbot.Target.Network do
 
     """
     iface #{config.name} inet dhcp
-        pre-up wpa_supplicant -Dnl80211 -B -i #{config.name} -c /root/#{
-      config.name
-    }.wpa_supplicant.conf -dd -P /var/run/#{config.name}.wpa_supplicant.pid
-        post-down kill -s SIGQUIT $(cat /var/run/#{config.name}.wpa_supplicant.pid)
+        pre-up #{wpa_supplicant_cmdline(config.name)}
+        post-down #{kill_wpa_supplicant_cmdline(config.name)}
 
     """
   end
@@ -102,7 +119,14 @@ defmodule Farmbot.Target.Network do
 
   def wpa_templ_render!(ifname, security, bindings) do
     output = EEx.eval_file(wpa_supplicant_conf_template(security), bindings)
-
     File.write!("/root/#{ifname}.wpa_supplicant.conf", output)
+  end
+
+  defp wpa_supplicant_cmdline(ifname) do
+    "wpa_supplicant -Dnl80211 -B -i #{ifname} -c /root/#{ifname}.wpa_supplicant.conf -dd -P /var/run/#{ifname}.wpa_supplicant.pid"
+  end
+
+  defp kill_wpa_supplicant_cmdline(ifname) do
+    "kill -s SIGQUIT $(cat /var/run/#{ifname}.wpa_supplicant.pid)"
   end
 end
