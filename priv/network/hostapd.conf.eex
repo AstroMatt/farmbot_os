@@ -1,6 +1,6 @@
 ctrl_interface=/var/run/hostapd_ctrl
-interface=uap0
-ssid=HOST AP
+interface=<%= ifname %>
+ssid="<%= ssid %>"
 hw_mode=g
 channel=6
 macaddr_acl=0

@@ -11,3 +11,12 @@ lib/farmbot/asset/regimen.ex
 lib/farmbot/jwt.ex
 lib/farmbot/json/jason_parser.ex
 lib/farmbot/json/parser.ex
+lib/farmbot/configurator/configurator.ex
+lib/farmbot/configurator/supervisor.ex
+lib/farmbot/configurator/watchdog.ex
+platform/target/configurator/configurator.ex
+platform/target/configurator/watchdog.ex
+platform/target/configurator/configurator.ex
+platform/target/network/network.ex
+platform/target/network/manager.ex
+platform/target/network/templates.ex

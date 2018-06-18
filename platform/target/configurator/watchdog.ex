@@ -3,7 +3,7 @@ defmodule Farmbot.Target.Watchdog do
 
   use GenServer
 
-  def kick(wd) do
+  def kick(_wd) do
     :ok
     # GenServer.call(wd, :kick)
   end
@@ -15,5 +15,4 @@ defmodule Farmbot.Target.Watchdog do
   def init([]) do
     {:ok, []}
   end
-
 end

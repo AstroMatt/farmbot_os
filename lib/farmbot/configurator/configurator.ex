@@ -22,7 +22,11 @@ defmodule Farmbot.Configurator do
 
   @doc false
   def start_link(_) do
-    GenServer.start_link(__MODULE__, [get_config_value(:bool, "settings", "first_boot")], [name: __MODULE__])
+    GenServer.start_link(
+      __MODULE__,
+      [get_config_value(:bool, "settings", "first_boot")],
+      name: __MODULE__
+    )
   end
 
   @doc false
@@ -49,30 +53,36 @@ defmodule Farmbot.Configurator do
 
   # watchdog timer while configurator is active.
   def handle_info(:watchdog_check, %{status: true} = state) do
-    state = case Watchdog.kick(state.watchdog) do
-      :ok ->
-        Logger.debug(3, "Watchdog status ok. Leaving Configurator mode.")
-        @configurator.leave()
-        %{state | status: false}
-      _ ->
-        # Configurator is already active. No need to start it again.
-        state
-    end
+    state =
+      case Watchdog.kick(state.watchdog) do
+        :ok ->
+          Logger.debug(3, "Watchdog status ok. Leaving Configurator mode.")
+          @configurator.leave()
+          %{state | status: false}
+
+        _ ->
+          # Configurator is already active. No need to start it again.
+          state
+      end
+
     timer = Process.send_after(self(), :watchdog_check, 5000)
     {:noreply, %{state | timer: timer}}
   end
 
   # watchdog timer while configurator is _not_ active.
   def handle_info(:watchdog_check, %{status: false} = state) do
-    state = case Watchdog.kick(state.watchdog) do
-      :ok ->
-        state
-      {:error, reason} ->
-        Logger.debug(3, "Watchdog status down. Entering Configurator mode.")
-        # Configurator is not active. start it.
-        @configurator.enter(reason)
-        %{state | status: true}
-    end
+    state =
+      case Watchdog.kick(state.watchdog) do
+        :ok ->
+          state
+
+        {:error, reason} ->
+          Logger.debug(3, "Watchdog status down. Entering Configurator mode.")
+          # Configurator is not active. start it.
+          @configurator.enter(reason)
+          %{state | status: true}
+      end
+
     timer = Process.send_after(self(), :watchdog_check, 5000)
     {:noreply, %{state | timer: timer}}
   end

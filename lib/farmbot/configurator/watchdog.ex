@@ -3,15 +3,16 @@ defmodule Farmbot.Configurator.Watchdog do
   Wrapper module for a watchdog behaviour.
   """
 
-  #TODO(Connor) - Do global watchdog stuff here like DNS check etc.
+  # TODO(Connor) - Do global watchdog stuff here like DNS check etc.
 
   @watchdog Application.get_env(:farmbot, :behaviour)[:watchdog]
-  @watchdog ||  Mix.raise("Please configure a watchdog implementation.")
+  @watchdog || Mix.raise("Please configure a watchdog implementation.")
   @configurator Application.get_env(:farmbot, :behaviour)[:configurator]
   @configurator || Mix.raise("Please configure a configurator implementation.")
   use Farmbot.Logger
 
-  import Farmbot.System.ConfigStorage, only: [get_config_value: 3, update_config_value: 4]
+  import Farmbot.System.ConfigStorage,
+    only: [get_config_value: 3, update_config_value: 4]
 
   use GenServer
 
@@ -42,6 +43,7 @@ defmodule Farmbot.Configurator.Watchdog do
           Farmbot.Bootstrap.AuthTask.force_refresh()
           start_dns_timer(30_000)
           {:noreply, %{state | dns: true}}
+
         err ->
           IO.inspect(err, label: "DNS FAIL")
           start_dns_timer(10_000)
@@ -61,7 +63,11 @@ defmodule Farmbot.Configurator.Watchdog do
 
       err ->
         Logger.error(1, "Farmbot is unable to reach Farmbot API.")
-        @configurator.enter("Farmbot is unable to reach Farmbot API (#{inspect err})")
+
+        @configurator.enter(
+          "Farmbot is unable to reach Farmbot API (#{inspect(err)})"
+        )
+
         start_dns_timer(10_000)
         {:noreply, %{state | dns: false}}
     end
@@ -77,17 +83,18 @@ defmodule Farmbot.Configurator.Watchdog do
   def test_dns(nil) do
     case get_config_value(:string, "authorization", "server") do
       nil -> 'nerves-project.org'
-      <<"https://" <> host :: binary>> -> test_dns(to_charlist(host))
-      <<"http://"  <> host :: binary>> -> test_dns(to_charlist(host))
+      <<"https://" <> host::binary>> -> test_dns(to_charlist(host))
+      <<"http://" <> host::binary>> -> test_dns(to_charlist(host))
     end
   end
 
   def test_dns(hostname) do
     reg = ~r(\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b)
+
     if Regex.match?(reg, to_string(hostname)) do
       {:ok, {:hostent, hostname, 4, :inet, [], []}}
     else
-      IO.puts "testing dns: #{inspect hostname}"
+      IO.puts("testing dns: #{inspect(hostname)}")
       :inet_res.gethostbyname(hostname)
     end
   end

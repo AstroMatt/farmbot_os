@@ -3,14 +3,28 @@ defmodule Farmbot.Target.Configurator do
   This init module is used to bring up initial configuration.
   If it can't find a configuration it will bring up a captive portal for a device to connect to.
   """
-
   @behaviour Farmbot.Configurator
 
   use Farmbot.Logger
+  use Supervisor
+
+  alias Farmbot.Target.Configurator
   alias Farmbot.System.ConfigStorage
   import ConfigStorage, only: [get_config_value: 3]
-  alias Farmbot.Target.Configurator
-  use Supervisor
+  import Farmbot.Target.Network.Templates
+
+  @ifname "uap0"
+
+  @hostapd_pid_file Path.join(["/", "var", "run", "#{@ifname}.hostapd.pid"])
+  @hostapd_conf_file Path.join(["/", "root", "#{@ifname}.hostapd.conf"])
+
+  @dnsmasq_leases_file Path.join([
+                         "/",
+                         "var",
+                         "run",
+                         "#{@ifname}.dnsmasq.leases"
+                       ])
+  @dnsmasq_conf_file Path.join(["/", "etc", "#{@ifname}.dnsmasq.conf"])
 
   @doc """
   This should block until all settings have been validated.
@@ -27,17 +41,36 @@ defmodule Farmbot.Target.Configurator do
   end
 
   def enter(reason) do
-    Logger.warn(3, "entering configuration mode: #{inspect reason}")
+    Logger.warn(3, "entering configuration mode: #{inspect(reason)}")
+    write_config!()
     Nerves.Runtime.cmd("kill", ["-9", "dnsmasq"], :info)
-    Nerves.Runtime.cmd("ifup", ["-f", "uap0"], :info)
-    Nerves.Runtime.cmd("hostapd", ["-B", "-i", "uap0", "-dd", "-P", "/var/run/uap0.hostapd.pid", "/etc/uap0.hostapd.conf"], :info)
-    Nerves.Runtime.cmd("dnsmasq", ["-K", "--dhcp-lease", "/var/run/uap0.dnsmasq.leases", "-C", "/etc/uap0.dnsmasq.conf", "--log-dhcp"], :info)
+    Nerves.Runtime.cmd("ifup", ["-f", @ifname], :info)
+
+    Nerves.Runtime.cmd(
+      "hostapd",
+      ["-B", "-i", @ifname, "-dd", "-P", @hostapd_pid_file, @hostapd_conf_file],
+      :info
+    )
+
+    Nerves.Runtime.cmd(
+      "dnsmasq",
+      [
+        "-K",
+        "--dhcp-lease",
+        @dnsmasq_leases_file,
+        "--log-dhcp",
+        "-C",
+        @dnsmasq_conf_file
+      ],
+      :info
+    )
+
     :ok
   end
 
   def leave do
     Logger.success(3, "leaving configuration mode.")
-    Nerves.Runtime.cmd("ifdown", ["-f", "uap0"], :info)
+    Nerves.Runtime.cmd("ifdown", ["-f", @ifname], :info)
     Nerves.Runtime.cmd("killall", ["-s", "SIGQUIT", "hostapd"], :info)
     Nerves.Runtime.cmd("killall", ["-9", "dnsmasq"], :info)
     :ok
@@ -51,8 +84,12 @@ defmodule Farmbot.Target.Configurator do
   @doc false
   def init(_) do
     :ets.new(:session, [:named_table, :public, read_concurrency: true])
+
     children = [
-      {Plug.Adapters.Cowboy, scheme: :http, plug: Configurator.Router, options: [port: 80, acceptors: 1]}
+      {Plug.Adapters.Cowboy,
+       scheme: :http,
+       plug: Configurator.Router,
+       options: [port: 80, acceptors: 1]}
     ]
 
     opts = [strategy: :one_for_one]
@@ -63,9 +100,10 @@ defmodule Farmbot.Target.Configurator do
     email = get_config_value(:string, "authorization", "email")
     pass = get_config_value(:string, "authorization", "password")
     server = get_config_value(:string, "authorization", "server")
-    network = !(Enum.empty?(ConfigStorage.get_all_network_configs()))
+    network = !Enum.empty?(ConfigStorage.get_all_network_configs())
+
     if email && pass && server && network do
-      Logger.success 2, "Configuration finished."
+      Logger.success(2, "Configuration finished.")
       :ok
     else
       Process.sleep(30_000)
@@ -73,4 +111,22 @@ defmodule Farmbot.Target.Configurator do
     end
   end
 
+  defp build_ssid do
+    node_str = node() |> Atom.to_string()
+
+    case node_str |> String.split("@") do
+      [name, "farmbot-" <> id] -> name <> "-" <> id
+      _ -> "farmbot-UNKN"
+    end
+  end
+
+  defp write_config! do
+    # Delete old file just in case.
+    File.rm(@hostapd_conf_file)
+    # render the template.
+    templ = hostapd_conf_template()
+    out = EEx.eval_file(templ, ifname: @ifname, ssid: build_ssid())
+    # write it.
+    File.write!(@hostapd_conf_file, out)
+  end
 end

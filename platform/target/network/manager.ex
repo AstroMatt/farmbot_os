@@ -17,12 +17,15 @@ defmodule Farmbot.Target.Network.Manager do
   def init([%NI{} = config]) do
     Nerves.Runtime.cmd("ifup", [config.name], :info)
     state = %State{config: %{config | ipv4_address: nil}}
-    state = if config.ipv4_method == "dhcp" do
-      start_dhcp_poll()
-      state
-    else
-      state
-    end
+
+    state =
+      if config.ipv4_method == "dhcp" do
+        start_dhcp_poll()
+        state
+      else
+        state
+      end
+
     {:ok, state}
   end
 
@@ -30,14 +33,18 @@ defmodule Farmbot.Target.Network.Manager do
     Nerves.Runtime.cmd("ifdown", [state.config.name], :info)
   end
 
-  def handle_info(:dhcp_poll, %{config: %{name: ifname, ipv4_address: old}} = state) do
+  def handle_info(
+        :dhcp_poll,
+        %{config: %{name: ifname, ipv4_address: old}} = state
+      ) do
     case Netinfo.ipv4_address(ifname) do
       {:ok, ^old} ->
         start_dhcp_poll()
         {:noreply, state}
+
       {:ok, new} ->
         start_dhcp_poll()
-        Logger.debug 3, "Ip address #{old} => #{new}"
+        Logger.debug(3, "Ip address #{old} => #{new}")
         new_state = %{state | config: %{state.config | ipv4_address: new}}
         {:noreply, handle_ip_change(new_state)}
     end
@@ -62,15 +69,16 @@ defmodule Farmbot.Target.Network.Manager do
     rand = :rand.uniform(5000)
 
     case Ntp.set_time() do
-
       # If we Successfully set time, sync again in around 1024 seconds
-      :ok -> Process.send_after(self(), :ntp_timer, 1024000 + rand)
+      :ok ->
+        Process.send_after(self(), :ntp_timer, 1_024_000 + rand)
+
       # If time failed, try again in about 5 minutes.
       _ ->
         if get_config_value(:bool, "settings", "first_boot") do
           Process.send_after(self(), :ntp_timer, 10_000 + rand)
         else
-          Process.send_after(self(), :ntp_timer, 300000 + rand)
+          Process.send_after(self(), :ntp_timer, 300_000 + rand)
         end
     end
   end
@@ -82,9 +90,9 @@ defmodule Farmbot.Target.Network.Manager do
     |> ScanResult.sort_results()
     |> ScanResult.decode_security()
     |> Enum.filter(&Map.get(&1, :ssid))
-    |> Enum.map(&Map.update(&1, :ssid, nil, fn(ssid) -> to_string(ssid) end))
+    |> Enum.map(&Map.update(&1, :ssid, nil, fn ssid -> to_string(ssid) end))
     |> Enum.reject(&String.contains?(&1.ssid, "\\x00"))
-    |> Enum.uniq_by(fn(%{ssid: ssid}) -> ssid end)
+    |> Enum.uniq_by(fn %{ssid: ssid} -> ssid end)
   end
 
   defp wait_for_results(pid) do
@@ -93,10 +101,11 @@ defmodule Farmbot.Target.Network.Manager do
     |> String.split("\n")
     |> tl()
     |> Enum.map(&String.split(&1, "\t"))
-    |> Enum.map(fn(res) ->
+    |> Enum.map(fn res ->
       case res do
         [bssid, freq, signal, flags, ssid] ->
-          %{bssid: bssid,
+          %{
+            bssid: bssid,
             frequency: String.to_integer(freq),
             flags: flags,
             level: String.to_integer(signal),
@@ -104,7 +113,8 @@ defmodule Farmbot.Target.Network.Manager do
           }
 
         [bssid, freq, signal, flags] ->
-          %{bssid: bssid,
+          %{
+            bssid: bssid,
             frequency: String.to_integer(freq),
             flags: flags,
             level: String.to_integer(signal),
@@ -116,7 +126,9 @@ defmodule Farmbot.Target.Network.Manager do
       [] ->
         Process.sleep(500)
         wait_for_results(pid)
-      res -> res
+
+      res ->
+        res
     end
   end
 
