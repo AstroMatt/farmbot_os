@@ -98,7 +98,7 @@ defmodule Farmbot.Logger do
     GenStage.cast(__MODULE__, {:dispatch_log, {env, level, verbosity, message, meta}})
   end
 
-  def dispatch_log(%Farmbot.Log{} = log) do
+  def dispatch_log(%Farmbot.Asset.Log{} = log) do
     GenStage.cast(__MODULE__, {:dispatch_log, log})
   end
 
@@ -116,10 +116,6 @@ defmodule Farmbot.Logger do
     {:noreply, [], state}
   end
 
-  def handle_events(_, _from, state) do
-    {:noreply, [], state}
-  end
-
   def handle_cast({:dispatch_log, {env, level, verbosity, message, meta}}, state) do
     time = :os.system_time(:seconds)
     fun = case env.function do
@@ -128,7 +124,7 @@ defmodule Farmbot.Logger do
     end
     meta_map = Map.new(meta)
     maybe_espeak(message, Map.get(meta_map, :channels, []), state.espeak)
-    log = struct(Farmbot.Log, [
+    log = struct(Farmbot.Asset.Log, [
       time: time,
       level: level,
       verbosity: verbosity,
@@ -138,13 +134,14 @@ defmodule Farmbot.Logger do
       file: env.file,
       line: env.line,
       module: env.module])
+      |> Farmbot.Asset.Log.new()
     logger_meta = [function: fun, file: env.file, line: env.line, module: env.module, time: time]
     logger_level = if level in [:info, :debug, :warn, :error], do: level, else: :info
     Elixir.Logger.bare_log(logger_level, log, logger_meta)
     {:noreply, [log], state}
   end
 
-  def handle_cast({:dispatch_log, %Farmbot.Log{} = log}, state) do
+  def handle_cast({:dispatch_log, %Farmbot.Asset.Log{} = log}, state) do
     {:noreply, [log], state}
   end
 

@@ -118,7 +118,7 @@ defmodule Farmbot.BotState.Transport.AMQP do
   end
 
   def handle_log_events(logs, state) do
-    for %Farmbot.Log{} = log <- logs do
+    for %Farmbot.Asset.Log{} = log <- logs do
       if should_log?(log.module, log.verbosity) do
         fb = %{position: %{x: -1, y: -1, z: -1}}
         location_data = Map.get(state.state_cache || %{}, :location_data, fb)
@@ -129,7 +129,7 @@ defmodule Farmbot.BotState.Transport.AMQP do
           major_version: log.version.major,
           minor_version: log.version.minor,
           patch_version: log.version.patch,
-          created_at: log.time,
+          created_at: log.created_at,
           channels: log.meta[:channels] || [],
           message: log.message
         }

@@ -18,6 +18,18 @@ defmodule Farmbot.Asset.Log do
     def dump(str), do: {:ok, to_string(str)}
   end
 
+  defmodule VersionType do
+    @moduledoc false
+
+    def type, do: :string
+
+    def cast(%Version{} = version), do: {:ok, to_string(version)}
+    def cast(str), do: {:ok, str}
+
+    def load(str), do: Version.parse(str)
+    def dump(str), do: {:ok, to_string(str)}
+  end
+
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -30,7 +42,7 @@ defmodule Farmbot.Asset.Log do
     field(:file, :string)
     field(:line, :integer)
     field(:module, :string)
-    field(:version, :string)
+    field(:version, VersionType)
     field(:commit, :string)
     field(:target, :string)
     field(:env, :string)
@@ -42,11 +54,35 @@ defmodule Farmbot.Asset.Log do
 
   def changeset(log, params \\ %{}) do
     log
-    |> Map.put(:version, to_string(Farmbot.Project.version()))
+    |> new()
+    |> cast(params, @required_fields ++ @optional_fields)
+    |> validate_required(@required_fields)
+  end
+
+  def new(%Farmbot.Asset.Log{} = merge) do
+    merge
+    |> Map.put(:version, Version.parse!(Farmbot.Project.version()))
     |> Map.put(:commit, to_string(Farmbot.Project.commit()))
     |> Map.put(:target, to_string(Farmbot.Project.target()))
     |> Map.put(:env, to_string(Farmbot.Project.env()))
-    |> cast(params, @required_fields ++ @optional_fields)
-    |> validate_required(@required_fields)
+  end
+
+  defimpl String.Chars, for: Farmbot.Asset.Log do
+    def to_string(log) do
+      if log.meta[:color] && function_exported?(IO.ANSI, log.meta[:color], 0) do
+        "#{apply(IO.ANSI, log.meta[:color], [])}#{log.message}#{color(:normal)}\n"
+      else
+        "#{color(log.level)}#{log.message}#{color(:normal)}\n"
+      end
+    end
+
+    defp color(:debug),   do: IO.ANSI.light_blue()
+    defp color(:info),    do: IO.ANSI.cyan()
+    defp color(:busy),    do: IO.ANSI.blue()
+    defp color(:success), do: IO.ANSI.green()
+    defp color(:warn),    do: IO.ANSI.yellow()
+    defp color(:error),   do: IO.ANSI.red()
+    defp color(:normal),  do: IO.ANSI.normal()
+    defp color(_),        do: IO.ANSI.normal()
   end
 end
