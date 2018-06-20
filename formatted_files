@@ -11,3 +11,4 @@ lib/farmbot/asset/regimen.ex
 lib/farmbot/jwt.ex
 lib/farmbot/json/jason_parser.ex
 lib/farmbot/json/parser.ex
+lib/farmbot/asset/log.ex
